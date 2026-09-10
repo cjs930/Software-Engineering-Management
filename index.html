@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>網站目錄</title>
+    <style>
+      :root {
+        --bg: #f4f7fb;
+        --panel: #ffffff;
+        --border: #dfe7f3;
+        --text: #1d2a39;
+        --muted: #62748a;
+        --primary: #2a6df6;
+        --primary-soft: #edf4ff;
+        --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Microsoft JhengHei", sans-serif;
+        background: linear-gradient(180deg, #f7fafd 0%, #eef4ff 100%);
+        color: var(--text);
+      }
+
+      .layout {
+        display: flex;
+        min-height: 100vh;
+        gap: 24px;
+        padding: 24px;
+      }
+
+      .sidebar,
+      .content {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+      }
+
+      .sidebar {
+        width: 380px;
+        padding: 20px;
+      }
+
+      .content {
+        flex: 1;
+        padding: 24px 28px;
+        overflow: auto;
+      }
+
+      h1, h2, h3 {
+        margin-top: 0;
+      }
+
+      .title {
+        font-size: 1.6rem;
+        margin-bottom: 18px;
+        color: var(--text);
+      }
+
+      .folder-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        margin: 8px 0;
+        color: var(--text);
+      }
+
+      .tree,
+      .tree ul {
+        list-style: none;
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .tree li {
+        margin: 6px 0;
+      }
+
+      .tree a {
+        color: var(--text);
+        text-decoration: none;
+        padding: 5px 8px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+      }
+
+      .tree a:hover {
+        background: var(--primary-soft);
+        color: var(--primary);
+      }
+
+      .badge {
+        display: inline-block;
+        min-width: 18px;
+        text-align: center;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        background: var(--primary-soft);
+        color: var(--primary);
+      }
+
+      .readme {
+        line-height: 1.8;
+        color: var(--text);
+      }
+
+      .readme h1,
+      .readme h2,
+      .readme h3,
+      .readme h4 {
+        margin: 1.2em 0 0.6em;
+        color: var(--text);
+      }
+
+      .readme p,
+      .readme ul,
+      .readme ol,
+      .readme table {
+        margin: 0.8em 0;
+      }
+
+      .readme a {
+        color: var(--primary);
+      }
+
+      .readme table {
+        border-collapse: collapse;
+        width: 100%;
+        border: 1px solid var(--border);
+        background: #fff;
+      }
+
+      .readme th,
+      .readme td {
+        border: 1px solid var(--border);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .readme th {
+        background: #f5f8ff;
+      }
+
+      .readme code {
+        background: #f2f4f7;
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-family: Consolas, monospace;
+      }
+
+      @media (max-width: 880px) {
+        .layout {
+          display: block;
+        }
+
+        .sidebar {
+          width: 100%;
+          margin-bottom: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <h1 class="title">網站目錄</h1>
+        <div id="tree"></div>
+      </aside>
+
+      <main class="content">
+        <h1>README</h1>
+        <article id="readme" class="readme"></article>
+      </main>
+    </div>
+
+    <script>
+      const treeRoot = document.getElementById('tree');
+      const readmeRoot = document.getElementById('readme');
+
+      function escapeHtml(value) {
+        return value
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function markdownToHtml(markdown) {
+        const lines = markdown.replace(/\r\n/g, '\n').split('\n');
+        const html = [];
+        let listType = null;
+        let listItems = [];
+
+        const flushList = () => {
+          if (!listType || listItems.length === 0) return;
+          html.push(`<${listType}>` + listItems.map(item => `<li>${item}</li>`).join('') + `</${listType}>`);
+          listType = null;
+          listItems = [];
+        };
+
+        const parseInline = (text) => {
+          let output = escapeHtml(text);
+          output = output.replace(/\[(.+?)\]\((https?:\/\/[^\s)]+|[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+          output = output.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+          output = output.replace(/\*(.+?)\*/g, '<em>$1</em>');
+          output = output.replace(/`([^`]+)`/g, '<code>$1</code>');
+          return output;
+        };
+
+        for (let i = 0; i < lines.length; i += 1) {
+          const line = lines[i];
+          const trimmed = line.trim();
+
+          if (!trimmed) {
+            flushList();
+            continue;
+          }
+
+          if (/^#{1,6}\s+/.test(trimmed)) {
+            flushList();
+            const match = trimmed.match(/^(#{1,6})\s+(.*)$/);
+            const level = match[1].length;
+            html.push(`<h${level}>${parseInline(match[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^\|.*\|$/.test(trimmed)) {
+            flushList();
+            const tableRows = [];
+            while (i < lines.length && /^\|.*\|$/.test(lines[i].trim())) {
+              tableRows.push(lines[i].trim());
+              i += 1;
+            }
+            i -= 1;
+
+            if (tableRows.length >= 2) {
+              const headerCells = tableRows[0].split('|').slice(1, -1).map(cell => parseInline(cell.trim()));
+              const bodyRows = tableRows.slice(1).map(row => row.split('|').slice(1, -1).map(cell => parseInline(cell.trim())));
+
+              html.push('<table><thead><tr>' + headerCells.map(cell => `<th>${cell}</th>`).join('') + '</tr></thead><tbody>');
+              bodyRows.forEach(row => {
+                html.push('<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>');
+              });
+              html.push('</tbody></table>');
+              continue;
+            }
+          }
+
+          if (/^[-*+]\s+/.test(trimmed)) {
+            if (listType !== 'ul') {
+              flushList();
+              listType = 'ul';
+            }
+            listItems.push(parseInline(trimmed.replace(/^[-*+]\s+/, '')));
+            continue;
+          }
+
+          if (/^\d+\.\s+/.test(trimmed)) {
+            if (listType !== 'ol') {
+              flushList();
+              listType = 'ol';
+            }
+            listItems.push(parseInline(trimmed.replace(/^\d+\.\s+/, '')));
+            continue;
+          }
+
+          if (/^---+$/.test(trimmed)) {
+            flushList();
+            html.push('<hr>');
+            continue;
+          }
+
+          flushList();
+          html.push(`<p>${parseInline(trimmed)}</p>`);
+        }
+
+        flushList();
+        return html.join('');
+      }
+
+      function buildTreeList(node) {
+        const list = document.createElement('ul');
+
+        if (node.type === 'directory') {
+          const folder = document.createElement('li');
+          const folderLink = document.createElement('div');
+          folderLink.className = 'folder-label';
+          folderLink.innerHTML = '<span>📁</span><span>' + escapeHtml(node.name || '根目錄') + '</span>';
+          folder.appendChild(folderLink);
+
+          if (node.children && node.children.length) {
+            const childrenList = document.createElement('ul');
+            node.children.forEach((child) => {
+              const childNode = buildTreeList(child);
+              childrenList.appendChild(childNode);
+            });
+            folder.appendChild(childrenList);
+          }
+
+          list.appendChild(folder);
+          return list;
+        }
+
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        const safePath = encodeURIComponent(node.path || '');
+        link.href = '/file?path=' + safePath;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.innerHTML = '<span>📄</span><span>' + escapeHtml(node.name) + '</span>';
+        item.appendChild(link);
+        list.appendChild(item);
+
+        return list;
+      }
+
+      async function loadTree() {
+        try {
+          const response = await fetch('/api/tree');
+          const tree = await response.json();
+          treeRoot.innerHTML = '';
+          treeRoot.appendChild(buildTreeList(tree));
+        } catch (error) {
+          treeRoot.innerHTML = '<p>無法載入目錄資料。</p>';
+        }
+      }
+
+      async function loadReadme() {
+        try {
+          const response = await fetch('/api/readme');
+          const html = await response.text();
+          readmeRoot.innerHTML = html;
+        } catch (error) {
+          readmeRoot.innerHTML = '<p>無法載入 README。</p>';
+        }
+      }
+
+      loadTree();
+      loadReadme();
+      setInterval(() => {
+        loadTree();
+        loadReadme();
+      }, 15000);
+    </script>
+  </body>
+</html>
