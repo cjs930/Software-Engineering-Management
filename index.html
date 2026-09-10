@@ -97,17 +97,6 @@
         color: var(--primary);
       }
 
-      .badge {
-        display: inline-block;
-        min-width: 18px;
-        text-align: center;
-        padding: 2px 6px;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        background: var(--primary-soft);
-        color: var(--primary);
-      }
-
       .readme {
         line-height: 1.8;
         color: var(--text);
@@ -188,12 +177,77 @@
       const readmeRoot = document.getElementById('readme');
 
       function escapeHtml(value) {
-        return value
+        return String(value || '')
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#039;');
+      }
+
+      function getRepoConfig() {
+        const params = new URLSearchParams(window.location.search);
+        const repoParam = params.get('repo');
+        if (repoParam) {
+          const [owner, repo] = repoParam.split('/').filter(Boolean);
+          if (owner && repo) {
+            return { owner, repo, branch: params.get('branch') || 'main' };
+          }
+        }
+
+        const hostname = window.location.hostname;
+        if (hostname.includes('github.io')) {
+          const pathParts = window.location.pathname.split('/').filter(Boolean);
+          const repo = pathParts[0] || '';
+          const owner = hostname.split('.')[0];
+          if (owner && repo) {
+            return { owner, repo, branch: 'main' };
+          }
+        }
+
+        return null;
+      }
+
+      function getFileLink(node) {
+        const repo = getRepoConfig();
+        if (repo) {
+          return `https://github.com/${repo.owner}/${repo.repo}/blob/${repo.branch}/${node.path}`;
+        }
+        return '/file?path=' + encodeURIComponent(node.path || '');
+      }
+
+      function buildTreeList(node) {
+        const list = document.createElement('ul');
+
+        if (node.type === 'directory') {
+          const folder = document.createElement('li');
+          const folderLabel = document.createElement('div');
+          folderLabel.className = 'folder-label';
+          folderLabel.innerHTML = '<span>📁</span><span>' + escapeHtml(node.name || '根目錄') + '</span>';
+          folder.appendChild(folderLabel);
+
+          if (node.children && node.children.length) {
+            const childrenList = document.createElement('ul');
+            node.children.forEach((child) => {
+              childrenList.appendChild(buildTreeList(child));
+            });
+            folder.appendChild(childrenList);
+          }
+
+          list.appendChild(folder);
+          return list;
+        }
+
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = getFileLink(node);
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.innerHTML = '<span>📄</span><span>' + escapeHtml(node.name) + '</span>';
+        item.appendChild(link);
+        list.appendChild(item);
+
+        return list;
       }
 
       function markdownToHtml(markdown) {
@@ -289,46 +343,60 @@
         return html.join('');
       }
 
-      function buildTreeList(node) {
-        const list = document.createElement('ul');
+      async function fetchLocalTree() {
+        const response = await fetch('/api/tree');
+        if (!response.ok) throw new Error('Local tree API failed');
+        return response.json();
+      }
 
-        if (node.type === 'directory') {
-          const folder = document.createElement('li');
-          const folderLink = document.createElement('div');
-          folderLink.className = 'folder-label';
-          folderLink.innerHTML = '<span>📁</span><span>' + escapeHtml(node.name || '根目錄') + '</span>';
-          folder.appendChild(folderLink);
+      async function fetchGitHubTree(path = '') {
+        const repo = getRepoConfig();
+        if (!repo) throw new Error('GitHub repo config not found');
 
-          if (node.children && node.children.length) {
-            const childrenList = document.createElement('ul');
-            node.children.forEach((child) => {
-              const childNode = buildTreeList(child);
-              childrenList.appendChild(childNode);
-            });
-            folder.appendChild(childrenList);
-          }
+        const url = `https://api.github.com/repos/${repo.owner}/${repo.repo}/contents/${path}?ref=${repo.branch}`;
+        const response = await fetch(url, {
+          headers: {
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        });
 
-          list.appendChild(folder);
-          return list;
+        if (!response.ok) {
+          throw new Error('GitHub directory fetch failed');
         }
 
-        const item = document.createElement('li');
-        const link = document.createElement('a');
-        const safePath = encodeURIComponent(node.path || '');
-        link.href = '/file?path=' + safePath;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.innerHTML = '<span>📄</span><span>' + escapeHtml(node.name) + '</span>';
-        item.appendChild(link);
-        list.appendChild(item);
+        const items = await response.json();
+        if (!Array.isArray(items)) {
+          return { name: repo.repo, path: '', type: 'directory', children: [] };
+        }
 
-        return list;
+        const children = [];
+        for (const item of items.sort((a, b) => a.name.localeCompare(b.name))) {
+          const node = {
+            name: item.name,
+            path: item.path,
+            type: item.type === 'dir' ? 'directory' : 'file',
+          };
+
+          if (item.type === 'dir') {
+            node.children = await fetchGitHubTree(item.path);
+          }
+
+          children.push(node);
+        }
+
+        return {
+          name: path ? path.split('/').pop() || repo.repo : repo.repo,
+          path,
+          type: 'directory',
+          children,
+        };
       }
 
       async function loadTree() {
         try {
-          const response = await fetch('/api/tree');
-          const tree = await response.json();
+          const repo = getRepoConfig();
+          const tree = repo ? await fetchGitHubTree() : await fetchLocalTree();
           treeRoot.innerHTML = '';
           treeRoot.appendChild(buildTreeList(tree));
         } catch (error) {
@@ -338,9 +406,31 @@
 
       async function loadReadme() {
         try {
+          const repo = getRepoConfig();
+          if (repo) {
+            const readmeUrl = `https://api.github.com/repos/${repo.owner}/${repo.repo}/readme?ref=${repo.branch}`;
+            const response = await fetch(readmeUrl, {
+              headers: {
+                Accept: 'application/vnd.github.v3.html',
+              },
+            });
+
+            if (response.ok) {
+              const html = await response.text();
+              readmeRoot.innerHTML = html;
+              return;
+            }
+
+            const raw = await fetch(`https://raw.githubusercontent.com/${repo.owner}/${repo.repo}/${repo.branch}/README.md`);
+            if (!raw.ok) throw new Error('README not available');
+            const markdown = await raw.text();
+            readmeRoot.innerHTML = markdownToHtml(markdown);
+            return;
+          }
+
           const response = await fetch('/api/readme');
-          const html = await response.text();
-          readmeRoot.innerHTML = html;
+          if (!response.ok) throw new Error('Local readme API failed');
+          readmeRoot.innerHTML = await response.text();
         } catch (error) {
           readmeRoot.innerHTML = '<p>無法載入 README。</p>';
         }
