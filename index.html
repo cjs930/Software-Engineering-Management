@@ -209,6 +209,15 @@
       }
 
       function getFileLink(node) {
+        const hostname = window.location.hostname;
+        const isGitHubPages = hostname.includes('github.io');
+
+        if (isGitHubPages) {
+          const basePath = window.location.pathname.replace(/index\.html$/, '').replace(/\/$/, '');
+          const relativePath = (node.path || '').split('/').map((segment) => encodeURIComponent(segment)).join('/');
+          return `${window.location.origin}${basePath}/${relativePath}`;
+        }
+
         const repo = getRepoConfig();
         if (repo) {
           return `https://github.com/${repo.owner}/${repo.repo}/blob/${repo.branch}/${node.path}`;
