@@ -304,7 +304,7 @@
           grid-template-columns: 1fr;
         }
       }
-    </meta>
+    </style>
   </head>
   <body>
     <header class="site-header">
@@ -427,15 +427,20 @@
 
           const isDir = node.type === 'tree';
           const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+          const safePath = encodeURI(node.path);
+          const repoPathUrl = isDir
+            ? `https://github.com/${owner}/${repo}/tree/${branch}/${safePath}`
+            : `https://github.com/${owner}/${repo}/blob/${branch}/${safePath}`;
+          const siteOpenUrl = isDir
+            ? repoPathUrl
+            : `${siteRoot}${safePath}`;
 
           const row = document.createElement('div');
           row.className = 'tree-branch';
 
           const label = document.createElement('a');
           label.className = 'tree-label';
-          label.href = isDir
-            ? `https://github.com/${owner}/${repo}/tree/${branch}/${encodeURI(node.path)}`
-            : `${siteRoot}${encodeURI(node.path)}`;
+          label.href = repoPathUrl;
           label.target = '_blank';
           label.rel = 'noopener noreferrer';
           label.innerHTML = `${isDir ? '📁' : '📄'} <span>${node.name}${isDir ? '/' : ''}</span>`;
@@ -460,7 +465,7 @@
 
           if (!isDir) {
             const openLink = document.createElement('a');
-            openLink.href = `${siteRoot}${encodeURI(node.path)}`;
+            openLink.href = siteOpenUrl;
             openLink.target = '_blank';
             openLink.rel = 'noopener noreferrer';
             openLink.textContent = '在新分頁開啟';
@@ -468,9 +473,7 @@
           }
 
           const githubLink = document.createElement('a');
-          githubLink.href = isDir
-            ? `https://github.com/${owner}/${repo}/tree/${branch}/${encodeURI(node.path)}`
-            : `https://github.com/${owner}/${repo}/blob/${branch}/${encodeURI(node.path)}`;
+          githubLink.href = repoPathUrl;
           githubLink.target = '_blank';
           githubLink.rel = 'noopener noreferrer';
           githubLink.textContent = 'GitHub';
