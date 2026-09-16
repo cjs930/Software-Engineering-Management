@@ -393,11 +393,14 @@
         readmeRoot.innerHTML = '<pre>' + DOMPurify.sanitize(rawText) + '</pre>';
       }
 
-      async function openFileInReader(filePath) {
-        const safePath = encodeURIComponent(filePath);
+      function getRawGithubUrl(filePath) {
+        const normalizedPath = filePath.replace(/^\.?\//, '').replace(/\\/g, '/');
+        return `https://raw.githubusercontent.com/${repoConfig.owner}/${repoConfig.repo}/${repoConfig.branch}/${normalizedPath}`;
+      }
 
+      async function openFileInReader(filePath) {
         try {
-          const response = await fetch(`/file?path=${safePath}`);
+          const response = await fetch(getRawGithubUrl(filePath), { cache: 'no-store' });
           if (!response.ok) {
             throw new Error('File not found');
           }
@@ -566,7 +569,7 @@
 
       async function loadReadme() {
         try {
-          const response = await fetch('/file?path=' + encodeURIComponent('README.md'));
+          const response = await fetch(getRawGithubUrl('README.md'), { cache: 'no-store' });
           if (!response.ok) {
             throw new Error('README not found');
           }
