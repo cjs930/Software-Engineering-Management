@@ -480,13 +480,11 @@
         fileWrap.className = 'tree-file';
 
         const link = document.createElement('a');
-        link.href = `/file?path=${encodeURIComponent(node.path)}`;
+        const fileUrl = `https://github.com/${repoConfig.owner}/${repoConfig.repo}/blob/${repoConfig.branch}/${node.path}`;
+        link.href = fileUrl;
+        link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.innerHTML = '<span class="file-icon">📄</span><span>' + node.name + '</span>';
-        link.addEventListener('click', (event) => {
-          event.preventDefault();
-          openFileInReader(node.path);
-        });
 
         fileWrap.appendChild(link);
         item.appendChild(fileWrap);
