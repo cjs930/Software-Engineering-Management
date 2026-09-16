@@ -190,6 +190,49 @@
         color: var(--primary-strong);
       }
 
+      .tree-file {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 4px 4px 4px 8px;
+      }
+
+      .tree-file > a {
+        flex: 1;
+      }
+
+      .tree-file-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
+      .tree-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 88px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(37, 87, 214, 0.4);
+        background: rgba(255, 255, 255, 0.8);
+        color: var(--primary);
+        text-decoration: none;
+        font-size: 0.82rem;
+        line-height: 1.2;
+        transition: 0.2s ease;
+      }
+
+      .tree-action:hover {
+        background: var(--primary-soft);
+      }
+
+      .tree-action-primary {
+        background: rgba(37, 87, 214, 0.08);
+      }
+
       .content {
         padding: 26px 30px 30px;
       }
@@ -398,6 +441,13 @@
         return `https://raw.githubusercontent.com/${repoConfig.owner}/${repoConfig.repo}/${repoConfig.branch}/${normalizedPath}`;
       }
 
+      function getViewerUrl(filePath) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('file', filePath);
+        url.hash = '';
+        return url.toString();
+      }
+
       async function openFileInReader(filePath) {
         try {
           const response = await fetch(getRawGithubUrl(filePath), { cache: 'no-store' });
@@ -416,6 +466,16 @@
           lastUpdatedNode.textContent = '載入失敗';
           readmeRoot.innerHTML = '<p>檔案無法載入，請稍後再試。</p>';
         }
+      }
+
+      function createActionButton(label, url, isPrimary) {
+        const button = document.createElement('a');
+        button.href = url;
+        button.target = '_blank';
+        button.rel = 'noopener noreferrer';
+        button.textContent = label;
+        button.className = isPrimary ? 'tree-action tree-action-primary' : 'tree-action';
+        return button;
       }
 
       function buildTreeBranch(node) {
@@ -480,13 +540,22 @@
         fileWrap.className = 'tree-file';
 
         const link = document.createElement('a');
-        const fileUrl = `https://github.com/${repoConfig.owner}/${repoConfig.repo}/blob/${repoConfig.branch}/${node.path}`;
-        link.href = fileUrl;
+        link.href = getViewerUrl(node.path);
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.innerHTML = '<span class="file-icon">📄</span><span>' + node.name + '</span>';
 
+        const actions = document.createElement('div');
+        actions.className = 'tree-file-actions';
+
+        const viewerAction = createActionButton('在新分頁開啟', getViewerUrl(node.path), true);
+        const githubAction = createActionButton('GitHub', `https://github.com/${repoConfig.owner}/${repoConfig.repo}/blob/${repoConfig.branch}/${node.path}`, false);
+
+        actions.appendChild(viewerAction);
+        actions.appendChild(githubAction);
+
         fileWrap.appendChild(link);
+        fileWrap.appendChild(actions);
         item.appendChild(fileWrap);
         list.appendChild(item);
         return list;
@@ -566,15 +635,20 @@
       }
 
       async function loadReadme() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fileParam = urlParams.get('file');
+
+        const filePath = fileParam || 'README.md';
+
         try {
-          const response = await fetch(getRawGithubUrl('README.md'), { cache: 'no-store' });
+          const response = await fetch(getRawGithubUrl(filePath), { cache: 'no-store' });
           if (!response.ok) {
             throw new Error('README not found');
           }
 
           const markdownText = await response.text();
-          setMainTitle('README.md');
-          renderMarkdown(markdownText);
+          setMainTitle(filePath.split('/').pop() || 'README.md');
+          renderFileContent(filePath.split('/').pop() || 'README.md', markdownText);
           formatFileDate(response);
         } catch (error) {
           console.error(error);
