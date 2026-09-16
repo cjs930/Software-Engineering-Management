@@ -84,7 +84,14 @@
       .tree ul {
         list-style: none;
         margin: 0;
-        padding-left: 18px;
+        padding: 0;
+      }
+
+      .tree {
+        background: linear-gradient(180deg, #f8fbff 0%, #f2f7ff 100%);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px 12px;
       }
 
       .tree > ul {
@@ -92,32 +99,95 @@
       }
 
       .tree li {
-        margin: 6px 0;
+        margin: 4px 0;
       }
 
-      .tree a {
+      .tree-node {
+        position: relative;
+      }
+
+      .tree-folder,
+      .tree-file {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 10px;
+        transition: 0.2s ease;
+      }
+
+      .tree-folder {
+        padding: 4px 8px;
+        border: 1px solid transparent;
+        cursor: pointer;
+      }
+
+      .tree-folder:hover,
+      .tree-file:hover {
+        background: var(--primary-soft);
+      }
+
+      .tree-toggle {
+        width: 20px;
+        height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        color: var(--primary);
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+        padding: 0;
+      }
+
+      .tree-toggle[aria-expanded="false"] {
+        transform: rotate(-90deg);
+      }
+
+      .tree-children {
+        margin-left: 14px;
+        padding-left: 12px;
+        border-left: 1px solid var(--border);
+      }
+
+      .tree-children.is-collapsed {
+        display: none;
+      }
+
+      .folder-label,
+      .tree-file a {
         display: inline-flex;
         align-items: center;
         gap: 8px;
+        width: 100%;
         padding: 6px 10px;
         border-radius: 10px;
         color: var(--text);
         text-decoration: none;
-        transition: 0.2s ease;
-      }
-
-      .tree a:hover {
-        background: var(--primary-soft);
-        color: var(--primary-strong);
+        font-weight: 600;
       }
 
       .folder-label {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 700;
-        color: var(--text);
-        padding: 5px 8px;
+        flex: 1;
+      }
+
+      .tree-file a {
+        padding-left: 8px;
+      }
+
+      .tree-icon,
+      .file-icon {
+        width: 1.1em;
+        display: inline-block;
+        text-align: center;
+        opacity: 0.9;
+      }
+
+      .tree-file a:hover {
+        background: var(--primary-soft);
+        color: var(--primary-strong);
       }
 
       .content {
@@ -290,6 +360,61 @@
         node.children.forEach(sortTree);
       }
 
+      function setMainTitle(title) {
+        const headerTag = document.querySelector('.header-tag');
+        if (headerTag) {
+          headerTag.textContent = title;
+        }
+      }
+
+      function formatFileDate(response) {
+        const lastModified = response.headers.get('last-modified');
+        if (lastModified) {
+          lastUpdatedNode.textContent = '最後更新：' + new Date(lastModified).toLocaleString('zh-TW');
+          return;
+        }
+
+        lastUpdatedNode.textContent = '最後更新：' + new Date().toLocaleString('zh-TW');
+      }
+
+      function renderFileContent(fileName, rawText) {
+        const extension = fileName.split('.').pop()?.toLowerCase();
+
+        if (extension === 'md') {
+          renderMarkdown(rawText);
+          return;
+        }
+
+        if (extension === 'html') {
+          readmeRoot.innerHTML = DOMPurify.sanitize(rawText);
+          return;
+        }
+
+        readmeRoot.innerHTML = '<pre>' + DOMPurify.sanitize(rawText) + '</pre>';
+      }
+
+      async function openFileInReader(filePath) {
+        const safePath = encodeURIComponent(filePath);
+
+        try {
+          const response = await fetch(`/file?path=${safePath}`);
+          if (!response.ok) {
+            throw new Error('File not found');
+          }
+
+          const fileName = filePath.split('/').pop() || '檔案';
+          setMainTitle(fileName);
+          formatFileDate(response);
+          const text = await response.text();
+          renderFileContent(fileName, text);
+        } catch (error) {
+          console.error(error);
+          setMainTitle('檔案無法開啟');
+          lastUpdatedNode.textContent = '載入失敗';
+          readmeRoot.innerHTML = '<p>檔案無法載入，請稍後再試。</p>';
+        }
+      }
+
       function buildTreeBranch(node) {
         const list = document.createElement('ul');
 
@@ -299,15 +424,46 @@
 
         if (node.type === 'directory') {
           const folderItem = document.createElement('li');
+          folderItem.className = 'tree-node';
+
+          const folderWrap = document.createElement('div');
+          folderWrap.className = 'tree-folder';
+
+          const toggle = document.createElement('button');
+          toggle.type = 'button';
+          toggle.className = 'tree-toggle';
+          toggle.setAttribute('aria-expanded', 'true');
+          toggle.setAttribute('aria-label', '展開/收合 ' + node.name);
+          toggle.innerHTML = '<span>▾</span>';
+
           const folderLabel = document.createElement('div');
           folderLabel.className = 'folder-label';
-          folderLabel.innerHTML = '<span>📁</span><span>' + node.name + '</span>';
-          folderItem.appendChild(folderLabel);
+          folderLabel.innerHTML = '<span class="tree-icon">📁</span><span>' + node.name + '</span>';
+
+          folderWrap.appendChild(toggle);
+          folderWrap.appendChild(folderLabel);
+          folderItem.appendChild(folderWrap);
 
           if (node.children && node.children.length > 0) {
             const children = document.createElement('ul');
+            children.className = 'tree-children';
             node.children.forEach((child) => children.appendChild(buildTreeBranch(child)));
             folderItem.appendChild(children);
+
+            toggle.addEventListener('click', () => {
+              const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+              toggle.setAttribute('aria-expanded', String(!isExpanded));
+              children.classList.toggle('is-collapsed', isExpanded);
+            });
+
+            folderWrap.addEventListener('click', (event) => {
+              if (event.target === toggle || toggle.contains(event.target)) {
+                return;
+              }
+              const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+              toggle.setAttribute('aria-expanded', String(!isExpanded));
+              children.classList.toggle('is-collapsed', isExpanded);
+            });
           }
 
           list.appendChild(folderItem);
@@ -315,13 +471,22 @@
         }
 
         const item = document.createElement('li');
+        item.className = 'tree-node';
+
+        const fileWrap = document.createElement('div');
+        fileWrap.className = 'tree-file';
+
         const link = document.createElement('a');
-        const fileUrl = `https://github.com/${repoConfig.owner}/${repoConfig.repo}/blob/${repoConfig.branch}/${node.path}`;
-        link.href = fileUrl;
-        link.target = '_blank';
+        link.href = `/file?path=${encodeURIComponent(node.path)}`;
         link.rel = 'noopener noreferrer';
-        link.innerHTML = '<span>📄</span><span>' + node.name + '</span>';
-        item.appendChild(link);
+        link.innerHTML = '<span class="file-icon">📄</span><span>' + node.name + '</span>';
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          openFileInReader(node.path);
+        });
+
+        fileWrap.appendChild(link);
+        item.appendChild(fileWrap);
         list.appendChild(item);
         return list;
       }
@@ -400,21 +565,16 @@
       }
 
       async function loadReadme() {
-        const rawUrl = `https://raw.githubusercontent.com/${repoConfig.owner}/${repoConfig.repo}/${repoConfig.branch}/README.md`;
-
         try {
-          const response = await fetch(rawUrl, { cache: 'no-store' });
+          const response = await fetch('/file?path=' + encodeURIComponent('README.md'));
           if (!response.ok) {
             throw new Error('README not found');
           }
 
           const markdownText = await response.text();
+          setMainTitle('README.md');
           renderMarkdown(markdownText);
-
-          const lastModified = response.headers.get('last-modified');
-          lastUpdatedNode.textContent = lastModified
-            ? '最後更新：' + new Date(lastModified).toLocaleString('zh-TW')
-            : '最後更新：' + new Date().toLocaleString('zh-TW');
+          formatFileDate(response);
         } catch (error) {
           console.error(error);
           readmeRoot.innerHTML = '<p>README.md 無法載入，請稍後再試。</p>';
