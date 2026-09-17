@@ -199,13 +199,46 @@
       }
 
       .tree-toggle {
-        min-width: 72px;
+        min-width: 34px;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 0;
+        position: relative;
+        flex-shrink: 0;
+      }
+
+      .tree-toggle::before {
+        content: "";
+        display: block;
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 10px solid var(--primary);
+        transition: transform 0.2s ease;
+        transform: rotate(0deg);
+      }
+
+      .tree-toggle[aria-expanded="true"]::before {
+        transform: rotate(180deg);
+      }
+
+      .tree-toggle[aria-expanded="false"]::before {
+        transform: rotate(90deg);
       }
 
       .tree-children {
         margin: 0 0 0 18px;
-        padding-left: 10px;
-        border-left: 1px solid var(--border);
+        padding-left: 12px;
+        border-left: 3px solid rgba(37, 99, 235, 0.75);
+        background: linear-gradient(90deg, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0));
+      }
+
+      .tree-children > .tree-node > .tree-branch {
+        border-left: 3px solid rgba(37, 99, 235, 0.45);
+        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);
       }
 
       .tree-node.is-collapsed > .tree-children {
@@ -371,6 +404,9 @@
             .filter((item) => item && item.path)
             .filter((item) => !item.path.startsWith('.git'))
             .filter((item) => !item.path.startsWith('.github'))
+            .filter((item) => item.path !== 'index.html')
+            .filter((item) => item.path.toLowerCase() !== 'readme.md')
+            .filter((item) => item.path !== 'js' && !item.path.startsWith('js/'))
             .sort((a, b) => {
               const aType = a.type === 'tree' ? 0 : 1;
               const bType = b.type === 'tree' ? 0 : 1;
@@ -440,8 +476,8 @@
 
           const label = document.createElement('a');
           label.className = 'tree-label';
-          label.href = repoPathUrl;
-          label.target = '_blank';
+          label.href = isDir ? repoPathUrl : siteOpenUrl;
+          label.target = isDir ? '_blank' : '_blank';
           label.rel = 'noopener noreferrer';
           label.innerHTML = `${isDir ? '📁' : '📄'} <span>${node.name}${isDir ? '/' : ''}</span>`;
 
@@ -449,35 +485,25 @@
           actions.className = 'tree-actions';
 
           if (isDir && hasChildren) {
+            li.classList.add('is-collapsed');
+
             const toggleBtn = document.createElement('button');
             toggleBtn.type = 'button';
             toggleBtn.className = 'tree-toggle';
-            toggleBtn.textContent = '展開';
-            toggleBtn.setAttribute('aria-expanded', 'true');
+            toggleBtn.setAttribute('aria-label', '展開資料夾');
+            toggleBtn.setAttribute('aria-expanded', 'false');
             toggleBtn.addEventListener('click', () => {
-              const willCollapse = !li.classList.contains('is-collapsed');
-              li.classList.toggle('is-collapsed', willCollapse);
-              toggleBtn.textContent = willCollapse ? '收合' : '展開';
-              toggleBtn.setAttribute('aria-expanded', String(!willCollapse));
+              const isCollapsed = li.classList.contains('is-collapsed');
+              const willExpand = isCollapsed;
+              li.classList.toggle('is-collapsed', !willExpand);
+              toggleBtn.setAttribute('aria-expanded', String(willExpand));
+              toggleBtn.setAttribute(
+                'aria-label',
+                willExpand ? '收合資料夾' : '展開資料夾'
+              );
             });
             actions.appendChild(toggleBtn);
           }
-
-          if (!isDir) {
-            const openLink = document.createElement('a');
-            openLink.href = siteOpenUrl;
-            openLink.target = '_blank';
-            openLink.rel = 'noopener noreferrer';
-            openLink.textContent = '在新分頁開啟';
-            actions.appendChild(openLink);
-          }
-
-          const githubLink = document.createElement('a');
-          githubLink.href = repoPathUrl;
-          githubLink.target = '_blank';
-          githubLink.rel = 'noopener noreferrer';
-          githubLink.textContent = 'GitHub';
-          actions.appendChild(githubLink);
 
           row.appendChild(label);
           row.appendChild(actions);
