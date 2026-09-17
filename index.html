@@ -398,6 +398,34 @@
         const siteRoot = 'https://cjs930.github.io/Software-Engineering-Management/';
         const treeEl = document.getElementById('repoTree');
         const readmeEl = document.getElementById('readmeContent');
+        const readmeTitleEl = document.getElementById('readme-title');
+
+        function renderMarkdownContent(markdown, title) {
+          const safeTitle = title || '文件內容';
+          readmeTitleEl.textContent = safeTitle;
+
+          if (window.marked && typeof window.marked.parse === 'function') {
+            readmeEl.innerHTML = window.marked.parse(markdown);
+          } else {
+            readmeEl.textContent = markdown;
+          }
+        }
+
+        async function openMarkdownFile(node) {
+          try {
+            const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${encodeURI(node.path)}`;
+            const response = await fetch(rawUrl);
+            if (!response.ok) {
+              throw new Error('Markdown file fetch failed');
+            }
+
+            const markdown = await response.text();
+            renderMarkdownContent(markdown, node.name);
+          } catch (error) {
+            console.error(error);
+            renderMarkdownContent('無法載入該 Markdown 檔案內容，請稍後再試。', node.name || '文件內容');
+          }
+        }
 
         function normalizeTree(items) {
           return (items || [])
@@ -477,9 +505,16 @@
           const label = document.createElement('a');
           label.className = 'tree-label';
           label.href = isDir ? repoPathUrl : siteOpenUrl;
-          label.target = isDir ? '_blank' : '_blank';
+          label.target = '_blank';
           label.rel = 'noopener noreferrer';
           label.innerHTML = `${isDir ? '📁' : '📄'} <span>${node.name}${isDir ? '/' : ''}</span>`;
+
+          if (!isDir && node.path.toLowerCase().endsWith('.md')) {
+            label.addEventListener('click', (event) => {
+              event.preventDefault();
+              openMarkdownFile(node);
+            });
+          }
 
           const actions = document.createElement('div');
           actions.className = 'tree-actions';
@@ -559,14 +594,10 @@
             }
 
             const markdown = await readmeRes.text();
-            if (window.marked && typeof window.marked.parse === 'function') {
-              readmeEl.innerHTML = window.marked.parse(markdown);
-            } else {
-              readmeEl.textContent = markdown;
-            }
+            renderMarkdownContent(markdown, 'README.md');
           } catch (error) {
             console.error(error);
-            readmeEl.innerHTML = '<p>無法載入 README.md 內容，請稍後再試。</p>';
+            renderMarkdownContent('無法載入 README.md 內容，請稍後再試。', 'README.md');
           }
         }
 
