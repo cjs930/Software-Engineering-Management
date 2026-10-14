@@ -27,7 +27,6 @@
    * **程式編碼與除錯**：依模組設計進行程式碼撰寫 (Programming/Coding)，並透過 AI 輔助或手工除錯 (Debugging) 修正 Bug [61]。
 3. **驗證與確認 (Validation & Verification, V&V)** [47, 61, 62]
    * **驗證 (Verification — "Do the thing right")**：確認開發過程與產出是否符合 SOP 與 SRS 規格（如單元測試、整合測試、原始碼靜態檢測）[61, 62]。
-   - [導讀音檔](https://notebooklm.link.google/2upSWPmmjQxc)
    * **確認 (Validation — "Do the right thing")**：確認系統是否真正解決使用者痛點並符合實際業務效益（如 UAT 使用者驗收測試）[2, 61, 62]。
    * **IV&V**：強調引入第三方獨立進行驗證與確認，確保客觀性 [62]。
 4. **演進與維護 (Software Evolution & Maintenance)** [47]
