@@ -10,6 +10,7 @@
   * **第二組**：`IEEE 12207` — **軟體生命週期流程 (Software Life Cycle Processes)** [27]
   * **第三組**：`IEEE 730` — **軟體品質保證 (Software Quality Assurance, SQAP)** [28, 31]
   * **第四組**：`IEEE 1012` — **系統與軟體驗證與確認 (System & Software Verification and Validation, V&V)** [27]
+    [導讀音檔](https://notebooklm.link.google/dKrJUIZLydxK)
 * **文獻下載途徑**：可經由臺科大圖書館 IEL (IEEE Xplore) 電子資料庫，連線校園 WiFi (`ntust`) 或使用校園 VPN 權限下載各標準全文 PDF [38, 41]。
 * **專題報告形式**：預計於 3 週後（第 7 週，10/21 起）進行第 1 次分組報告。報告內容聚焦於：標準架構背景、核心規範條文、實務應用與導入挑戰評估 [32, 36, 37]。
 
