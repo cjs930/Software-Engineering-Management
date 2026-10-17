@@ -168,6 +168,16 @@
         text-decoration: none;
       }
 
+      button.tree-label {
+        border: 0;
+        padding: 0;
+        background: transparent;
+        font: inherit;
+        font-weight: 600;
+        text-align: left;
+        cursor: pointer;
+      }
+
       .tree-actions {
         display: flex;
         align-items: center;
@@ -491,11 +501,16 @@
           const row = document.createElement('div');
           row.className = 'tree-branch';
 
-          const label = document.createElement('a');
+          const label = document.createElement(isDir ? 'button' : 'a');
           label.className = 'tree-label';
-          label.href = isDir ? repoPathUrl : siteOpenUrl;
-          label.target = '_blank';
-          label.rel = 'noopener noreferrer';
+          if (isDir) {
+            label.type = 'button';
+            label.disabled = !hasChildren;
+          } else {
+            label.href = siteOpenUrl;
+            label.target = '_blank';
+            label.rel = 'noopener noreferrer';
+          }
           label.innerHTML = `${isDir ? '📁' : '📄'} <span>${node.name}${isDir ? '/' : ''}</span>`;
 
           if (!isDir && node.path.toLowerCase().endsWith('.md')) {
@@ -516,16 +531,20 @@
             toggleBtn.className = 'tree-toggle';
             toggleBtn.setAttribute('aria-label', '展開資料夾');
             toggleBtn.setAttribute('aria-expanded', 'false');
-            toggleBtn.addEventListener('click', () => {
+            label.setAttribute('aria-expanded', 'false');
+            const toggleDirectory = () => {
               const isCollapsed = li.classList.contains('is-collapsed');
               const willExpand = isCollapsed;
               li.classList.toggle('is-collapsed', !willExpand);
               toggleBtn.setAttribute('aria-expanded', String(willExpand));
+              label.setAttribute('aria-expanded', String(willExpand));
               toggleBtn.setAttribute(
                 'aria-label',
                 willExpand ? '收合資料夾' : '展開資料夾'
               );
-            });
+            };
+            label.addEventListener('click', toggleDirectory);
+            toggleBtn.addEventListener('click', toggleDirectory);
             actions.appendChild(toggleBtn);
           }
 
